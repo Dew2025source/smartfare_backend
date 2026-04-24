@@ -10,7 +10,7 @@ const { getAllLocations } = require('./utils/routeData');
 const { getDistance } = require('./utils/getDistance');
 const { calculateFares } = require('./utils/fareCalculator');
 const { getRoadDistanceKm } = require('./utils/osrmService');
-const { searchLocations, resolveLocation, normalizeCoord } = require('./utils/geocodingService');
+const { searchLocations, resolveLocation, normalizeCoord, reverseGeocode } = require('./utils/geocodingService');
 
 const app = express();
 
@@ -55,6 +55,24 @@ app.get('/api/geocode/search', async (req, res) => {
     res.json({ success: true, message: 'Locations searched successfully.', data: { locations } });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message || 'Error searching locations.' });
+  }
+});
+
+
+// Reverse geocode: browser current GPS coordinates -> readable area/place name
+app.get('/api/geocode/reverse', async (req, res) => {
+  try {
+    const lat = Number(req.query.lat);
+    const lng = Number(req.query.lng ?? req.query.lon);
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return res.status(400).json({ success: false, message: 'Valid lat and lng are required.' });
+    }
+
+    const location = await reverseGeocode(lat, lng);
+    res.json({ success: true, message: 'Current location name found.', data: { location } });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message || 'Error finding current location name.' });
   }
 });
 

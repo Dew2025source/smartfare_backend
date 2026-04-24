@@ -115,6 +115,57 @@ async function searchLocations(query, limit = 8) {
     .slice(0, limit);
 }
 
+async function reverseGeocode(lat, lng) {
+  const coords = normalizeCoord({ lat, lng });
+  if (!coords) throw new Error('Valid latitude and longitude are required');
+
+  try {
+    const response = await axios.get('https://nominatim.openstreetmap.org/reverse', {
+      timeout: 9000,
+      headers: {
+        'User-Agent': USER_AGENT,
+        'Accept-Language': 'en'
+      },
+      params: {
+        lat: coords.lat,
+        lon: coords.lng,
+        format: 'jsonv2',
+        addressdetails: 1,
+        zoom: 18
+      }
+    });
+
+    const item = response.data || {};
+    const address = item.address || {};
+    const bestName =
+      item.name ||
+      address.road ||
+      address.neighbourhood ||
+      address.suburb ||
+      address.city_district ||
+      address.city ||
+      address.town ||
+      address.village ||
+      'Current Location';
+
+    return {
+      name: bestName,
+      displayName: item.display_name || bestName,
+      lat: coords.lat,
+      lng: coords.lng,
+      source: 'reverse-nominatim'
+    };
+  } catch (error) {
+    return {
+      name: 'Current Location',
+      displayName: `Current Location (${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)})`,
+      lat: coords.lat,
+      lng: coords.lng,
+      source: 'browser-current-location'
+    };
+  }
+}
+
 async function resolveLocation(input) {
   if (typeof input === 'object' && input !== null) {
     const coords = normalizeCoord(input);
@@ -144,5 +195,6 @@ module.exports = {
   searchLocations,
   resolveLocation,
   getKnownLocation,
-  normalizeCoord
+  normalizeCoord,
+  reverseGeocode
 };
