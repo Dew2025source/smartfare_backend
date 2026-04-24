@@ -9,6 +9,8 @@ const bookingRoutes = require('./routes/bookingRoutes');
 const { getAllLocations } = require('./utils/routeData');
 const { getDistance } = require('./utils/getDistance');
 const { calculateFares } = require('./utils/fareCalculator');
+const { getRoadDistanceKm } = require('./utils/osrmService');
+const { searchLocations, resolveLocation, normalizeCoord } = require('./utils/geocodingService');
 
 const app = express();
 
@@ -35,6 +37,67 @@ app.get('/api/locations', (req, res) => {
     res.json({ success: true, message: 'Locations fetched successfully.', data: { locations } });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Error fetching locations.' });
+  }
+});
+
+
+// Geocode search: local SmartFare locations + OpenStreetMap/Nominatim places
+app.get('/api/geocode/search', async (req, res) => {
+  try {
+    const q = req.query.q?.trim();
+    const limit = Math.min(Number(req.query.limit) || 8, 10);
+
+    if (!q || q.length < 2) {
+      return res.json({ success: true, message: 'Type at least 2 characters.', data: { locations: [] } });
+    }
+
+    const locations = await searchLocations(q, limit);
+    res.json({ success: true, message: 'Locations searched successfully.', data: { locations } });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message || 'Error searching locations.' });
+  }
+});
+
+// Coordinate-based route lookup: supports browser current location and arbitrary searched places
+app.post('/api/route/coords', async (req, res) => {
+  try {
+    const from = req.body.from;
+    const to = req.body.to;
+
+    const fromLocation = normalizeCoord(from) ? await resolveLocation(from) : await resolveLocation(String(from || ''));
+    const toLocation = normalizeCoord(to) ? await resolveLocation(to) : await resolveLocation(String(to || ''));
+
+    if (fromLocation.lat === toLocation.lat && fromLocation.lng === toLocation.lng) {
+      return res.status(400).json({ success: false, message: 'Pickup and drop-off cannot be the same location.' });
+    }
+
+    const distance = await getRoadDistanceKm(
+      { lat: fromLocation.lat, lng: fromLocation.lng },
+      { lat: toLocation.lat, lng: toLocation.lng }
+    );
+
+    res.json({
+      success: true,
+      message: 'Route found.',
+      data: {
+        route: {
+          from: fromLocation.name,
+          to: toLocation.name,
+          fromDisplayName: fromLocation.displayName,
+          toDisplayName: toLocation.displayName,
+          distance,
+          source: 'osrm-coordinates',
+          fromCoords: { lat: fromLocation.lat, lng: fromLocation.lng },
+          toCoords: { lat: toLocation.lat, lng: toLocation.lng }
+        }
+      }
+    });
+  } catch (error) {
+    const notFound = /not found|required|valid route/i.test(error.message || '');
+    res.status(notFound ? 404 : 500).json({
+      success: false,
+      message: error.message || 'Error finding route from coordinates.'
+    });
   }
 });
 
