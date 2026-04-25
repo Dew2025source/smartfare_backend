@@ -2,7 +2,7 @@ const axios = require('axios');
 const locationCoords = require('./locationCoords');
 
 const DEFAULT_COUNTRY = process.env.GEOCODE_COUNTRY || 'India';
-const DEFAULT_VIEWBOX = process.env.GEOCODE_VIEWBOX || '76.0,27.8,78.7,29.7'; 
+const DEFAULT_VIEWBOX = process.env.GEOCODE_VIEWBOX || '76.0,27.8,78.7,29.7'; // Delhi/NCR + Meerut belt: left,bottom,right,top
 const USER_AGENT = process.env.NOMINATIM_USER_AGENT || 'SmartFare/1.0 (smartfare.local)';
 
 function normalizeCoord(coord) {
