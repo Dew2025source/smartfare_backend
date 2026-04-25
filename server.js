@@ -9,7 +9,7 @@ const bookingRoutes = require('./routes/bookingRoutes');
 const { getAllLocations } = require('./utils/routeData');
 const { getDistance } = require('./utils/getDistance');
 const { calculateFares } = require('./utils/fareCalculator');
-const { getRoadDistanceKm } = require('./utils/osrmService');
+const { getRoadDistanceKm, getRoadDetails } = require('./utils/osrmService');
 const { searchLocations, resolveLocation, normalizeCoord, reverseGeocode } = require('./utils/geocodingService');
 
 const app = express();
@@ -89,10 +89,11 @@ app.post('/api/route/coords', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Pickup and drop-off cannot be the same location.' });
     }
 
-    const distance = await getRoadDistanceKm(
+    const routeDetails = await getRoadDetails(
       { lat: fromLocation.lat, lng: fromLocation.lng },
       { lat: toLocation.lat, lng: toLocation.lng }
     );
+    const distance = routeDetails.distance;
 
     res.json({
       success: true,
@@ -105,6 +106,8 @@ app.post('/api/route/coords', async (req, res) => {
           toDisplayName: toLocation.displayName,
           distance,
           source: 'osrm-coordinates',
+          durationMinutes: routeDetails.durationMinutes,
+          geometry: routeDetails.geometry,
           fromCoords: { lat: fromLocation.lat, lng: fromLocation.lng },
           toCoords: { lat: toLocation.lat, lng: toLocation.lng }
         }
