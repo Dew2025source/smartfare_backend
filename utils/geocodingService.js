@@ -2,7 +2,7 @@ const axios = require('axios');
 const locationCoords = require('./locationCoords');
 
 const DEFAULT_COUNTRY = process.env.GEOCODE_COUNTRY || 'India';
-const DEFAULT_VIEWBOX = process.env.GEOCODE_VIEWBOX || '76.7,28.3,77.7,29.1'; // Delhi NCR-ish: left,bottom,right,top
+const DEFAULT_VIEWBOX = process.env.GEOCODE_VIEWBOX || '76.0,27.8,78.7,29.7'; 
 const USER_AGENT = process.env.NOMINATIM_USER_AGENT || 'SmartFare/1.0 (smartfare.local)';
 
 function normalizeCoord(coord) {
@@ -55,34 +55,14 @@ function localSearch(query, limit = 6) {
     }));
 }
 
-async function searchNominatim(query, limit = 6) {
-  const clean = String(query || '').trim();
-  if (clean.length < 3) return [];
-
-  const response = await axios.get('https://nominatim.openstreetmap.org/search', {
-    timeout: 9000,
-    headers: {
-      'User-Agent': USER_AGENT,
-      'Accept-Language': 'en'
-    },
-    params: {
-      q: `${clean}, ${DEFAULT_COUNTRY}`,
-      format: 'jsonv2',
-      addressdetails: 1,
-      limit,
-      countrycodes: 'in',
-      bounded: 0,
-      viewbox: DEFAULT_VIEWBOX
-    }
-  });
-
-  return (response.data || [])
+function mapNominatimItems(items, clean) {
+  return (items || [])
     .map(item => {
       const lat = Number(item.lat);
       const lng = Number(item.lon);
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
       const address = item.address || {};
-      const name = item.name || address.suburb || address.neighbourhood || address.city || clean;
+      const name = item.name || address.suburb || address.neighbourhood || address.town || address.city || address.village || clean;
       return {
         name,
         displayName: item.display_name,
@@ -92,6 +72,41 @@ async function searchNominatim(query, limit = 6) {
       };
     })
     .filter(Boolean);
+}
+
+async function fetchNominatim(clean, limit = 6, bounded = 1) {
+  const params = {
+    q: `${clean}, ${DEFAULT_COUNTRY}`,
+    format: 'jsonv2',
+    addressdetails: 1,
+    limit,
+    countrycodes: 'in'
+  };
+
+  if (bounded) {
+    params.bounded = 1;
+    params.viewbox = DEFAULT_VIEWBOX;
+  }
+
+  const response = await axios.get('https://nominatim.openstreetmap.org/search', {
+    timeout: 9000,
+    headers: {
+      'User-Agent': USER_AGENT,
+      'Accept-Language': 'en'
+    },
+    params
+  });
+
+  return mapNominatimItems(response.data, clean);
+}
+
+async function searchNominatim(query, limit = 6) {
+  const clean = String(query || '').trim();
+  if (clean.length < 3) return [];
+
+  let matches = await fetchNominatim(clean, limit, 1);
+  if (!matches.length) matches = await fetchNominatim(clean, limit, 0);
+  return matches;
 }
 
 async function searchLocations(query, limit = 8) {
