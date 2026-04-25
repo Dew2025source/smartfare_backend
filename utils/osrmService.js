@@ -1,7 +1,7 @@
 const axios = require("axios");
 
 async function getRoadDetails(fromCoords, toCoords) {
-  const url = `https://router.project-osrm.org/route/v1/driving/${fromCoords.lng},${fromCoords.lat};${toCoords.lng},${toCoords.lat}?overview=full&geometries=geojson`;
+  const url = `https://router.project-osrm.org/route/v1/driving/${fromCoords.lng},${fromCoords.lat};${toCoords.lng},${toCoords.lat}?overview=full&geometries=geojson&steps=false`;
 
   const response = await axios.get(url, {
     timeout: 10000
