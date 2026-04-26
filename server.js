@@ -6,6 +6,7 @@ const cors = require('cors');
 const connectDB = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
 const bookingRoutes = require('./routes/bookingRoutes');
+const locationCoords = require('./utils/locationCoords');
 const { getAllLocations } = require('./utils/routeData');
 const { getDistance } = require('./utils/getDistance');
 const { calculateFares } = require('./utils/fareCalculator');
@@ -137,18 +138,23 @@ app.get('/api/route', async (req, res) => {
 
     const result = await getDistance(from, to);
 
-    res.json({
-      success: true,
-      message: 'Route found.',
-      data: {
-        route: {
-          from,
-          to,
-          distance: result.distance,
-          source: result.source,
-        }
-      }
-    });
+    const fromCoords = locationCoords[from] || null;
+const toCoords = locationCoords[to] || null;
+
+res.json({
+  success: true,
+  message: 'Route found.',
+  data: {
+    route: {
+      from,
+      to,
+      distance: result.distance,
+      source: result.source,
+      fromCoords,
+      toCoords
+    }
+  }
+});
   } catch (error) {
     const notFound = /not found|unable to calculate/i.test(error.message || '');
     res.status(notFound ? 404 : 500).json({
